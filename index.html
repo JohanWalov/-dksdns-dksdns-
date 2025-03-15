@@ -1,495 +1,1155 @@
 <!DOCTYPE html>
- <html lang="en">
- <head>
-     <meta charset="UTF-8">
-     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-     <title>Magic Numbers Accessibility Palette Generator</title>
-     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-     <script src="https://cdn.tailwindcss.com"></script>
-     <script>
-         // Configure Tailwind
-         tailwind.config = {
-             theme: {
-                 extend: {}
-             }
-         }
-     </script>
- </head>
- <body>
-     <div id="root"></div>
- 
-     <script type="text/babel">
-         // Utility functions
-         const hexToRgb = (hex) => {
-             const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-             if (!result) throw new Error('Invalid hex color');
- 
-             return {
-                 r: parseInt(result[1], 16),
-                 g: parseInt(result[2], 16),
-                 b: parseInt(result[3], 16)
-             };
-         };
- 
-         const rgbToHex = ({ r, g, b }) => {
-             const toHex = (n) => {
-                 const hex = n.toString(16);
-                 return hex.length === 1 ? '0' + hex : hex;
-             };
-             return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-         };
- 
-         const rgbToHsl = ({ r, g, b }) => {
-             r /= 255;
-             g /= 255;
-             b /= 255;
- 
-             const max = Math.max(r, g, b);
-             const min = Math.min(r, g, b);
-             let h = 0, s, l = (max + min) / 2;
- 
-             if (max === min) {
-                 h = s = 0;
-             } else {
-                 const d = max - min;
-                 s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
- 
-                 switch (max) {
-                     case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-                     case g: h = (b - r) / d + 2; break;
-                     case b: h = (r - g) / d + 4; break;
-                 }
- 
-                 h /= 6;
-             }
- 
-             return {
-                 h: Math.round(h * 360),
-                 s: Math.round(s * 100),
-                 l: Math.round(l * 100)
-             };
-         };
- 
-         const hslToRgb = ({ h, s, l }) => {
-             s /= 100;
-             l /= 100;
-             const k = (n) => (n + h / 30) % 12;
-             const a = s * Math.min(l, 1 - l);
-             const f = (n) =>
-                 l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
- 
-             return {
-                 r: Math.round(255 * f(0)),
-                 g: Math.round(255 * f(8)),
-                 b: Math.round(255 * f(4))
-             };
-         };
- 
-         const getLuminance = ({ r, g, b }) => {
-             const [rs, gs, bs] = [r, g, b].map(c => {
-                 c = c / 255;
-                 return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-             });
-             return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
-         };
- 
-         const GRADE_LUMINANCE = {
-             0: { min: 1.000, max: 1.000 },
-             5: { min: 0.850, max: 0.930 },
-             10: { min: 0.750, max: 0.820 },
-             20: { min: 0.500, max: 0.650 },
-             30: { min: 0.350, max: 0.450 },
-             40: { min: 0.225, max: 0.300 },
-             50: { min: 0.175, max: 0.183 },
-             60: { min: 0.100, max: 0.125 },
-             70: { min: 0.050, max: 0.070 },
-             80: { min: 0.020, max: 0.040 },
-             90: { min: 0.005, max: 0.015 },
-             100: { min: 0.000, max: 0.000 }
-         };
- 
-         const getGradeFromLuminance = (luminance) => {
-             for (const [grade, range] of Object.entries(GRADE_LUMINANCE)) {
-                 if (luminance >= range.min && luminance <= range.max) {
-                     return parseInt(grade);
-                 }
-             }
-             return -1;
-         };
- 
-         const adjustSaturation = (grade, saturation) => {
-             if (grade <= 5) {
-                 return Math.max(0, saturation * 0.5);
-             } else if (grade <= 20) {
-                 return Math.max(0, saturation * 0.7);
-             } else if (grade >= 80) {
-                 return Math.max(0, saturation * 0.6);
-             } else if (grade >= 60) {
-                 return Math.max(0, saturation * 0.8);
-             }
-             return Math.max(0, saturation * 0.9);
-         };
- 
-         const adjustColorForGrade = (grade, hsl) => {
-             if (grade === 100) {
-                 return { h: hsl.h, s: 0, l: 0 };
-             }
- 
-             const targetLuminance = (GRADE_LUMINANCE[grade].min + GRADE_LUMINANCE[grade].max) / 2;
-             let adjustedHsl = { ...hsl };
- 
-             adjustedHsl.s = adjustSaturation(grade, hsl.s);
- 
-             let min = 0;
-             let max = 100;
-             let l = hsl.l;
-             let iterations = 0;
-             const maxIterations = 20;
- 
-             while (iterations < maxIterations) {
-                 const rgb = hslToRgb({ ...adjustedHsl, l });
-                 const currentLuminance = getLuminance(rgb);
- 
-                 if (Math.abs(currentLuminance - targetLuminance) < 0.001) {
-                     break;
-                 }
- 
-                 if (currentLuminance > targetLuminance) {
-                     max = l;
-                     l = (min + l) / 2;
-                 } else {
-                     min = l;
-                     l = (l + max) / 2;
-                 }
- 
-                 iterations++;
-             }
- 
-             adjustedHsl.l = l;
- 
-             if (grade <= 20) {
-                 adjustedHsl.h = (adjustedHsl.h + 2) % 360;
-             } else if (grade >= 80) {
-                 adjustedHsl.h = (adjustedHsl.h - 2 + 360) % 360;
-             }
- 
-             return adjustedHsl;
-         };
- 
-         const generatePalette = (baseHex) => {
-             const baseRgb = hexToRgb(baseHex);
-             const baseHsl = rgbToHsl(baseRgb);
-             const baseLuminance = getLuminance(baseRgb);
-             const baseGrade = getGradeFromLuminance(baseLuminance);
- 
-             const grades = [0, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
- 
-             return grades.map(grade => {
-                 if (grade === baseGrade) {
-                     return {
-                         grade,
-                         hex: baseHex.toLowerCase(),
-                         rgb: baseRgb,
-                         hsl: baseHsl,
-                         luminance: baseLuminance
-                     };
-                 }
- 
-                 const hsl = adjustColorForGrade(grade, baseHsl);
-                 const rgb = hslToRgb(hsl);
-                 const hex = rgbToHex(rgb);
-                 const luminance = getLuminance(rgb);
- 
-                 return {
-                     grade,
-                     hex,
-                     rgb,
-                     hsl,
-                     luminance
-                 };
-             });
-         };
- 
-         // Icons as components
-         const CopyIcon = () => (
-             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                 <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
-             </svg>
-         );
- 
-         const CheckIcon = () => (
-             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                 <polyline points="20 6 9 17 4 12"/>
-             </svg>
-         );
- 
-         const ChevronDownIcon = () => (
-             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                 <path d="m6 9 6 6 6-6"/>
-             </svg>
-         );
- 
-         const ChevronUpIcon = () => (
-             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                 <path d="m18 15-6-6-6 6"/>
-             </svg>
-         );
- 
-         const HelpCircleIcon = () => (
-             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                 <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>
-             </svg>
-         );
- 
-         const AlertTriangleIcon = () => (
-             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                 <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>
-             </svg>
-         );
- 
-         function App() {
-             const [hexColor, setHexColor] = React.useState('#ffffff');
-             const [palette, setPalette] = React.useState(() => generatePalette('#ffffff'));
-             const [copiedColor, setCopiedColor] = React.useState(null);
-             const [gradeInfo, setGradeInfo] = React.useState(null);
-             const [isGuideOpen, setIsGuideOpen] = React.useState(false);
- 
-             const handleColorChange = React.useCallback((e) => {
-                 let value = e.target.value.replace('##', '#');
-                 if (!value.startsWith('#')) {
-                     value = '#' + value;
-                 }
-                 setHexColor(value);
- 
-                 try {
-                     if (value.length >= 7) {
-                         const rgb = hexToRgb(value);
-                         const luminance = getLuminance(rgb);
-                         const grade = getGradeFromLuminance(luminance);
- 
-                         if (grade === -1) {
-                             const newPalette = generatePalette(value);
-                             setPalette(newPalette);
- 
-                             const closestGrades = findClosestGrades(luminance);
-                             setGradeInfo(`This color falls between grades ${closestGrades.lower} and ${closestGrades.upper}`);
-                         } else {
-                             setPalette(generatePalette(value));
-                             setGradeInfo(null);
-                         }
-                     } else if (value.length === 7) {
-                         const rgb = hexToRgb(value);
-                         setPalette(generatePalette(value));
-                         setGradeInfo(null);
-                     } else {
-                         setGradeInfo(null);
-                     }
-                 } catch (error) {
-                     if (value.length >= 7) {
-                         console.error('Invalid color code');
-                         setGradeInfo('Please enter a valid hex color code');
-                     } else {
-                         setGradeInfo(null);
-                     }
-                 }
-             }, []);
- 
-             const findClosestGrades = (luminance) => {
-                 const grades = [0, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
-                 const luminanceValues = [
-                     1.000, 0.890, 0.785, 0.575, 0.400, 0.263, 0.179, 0.113, 0.060, 0.030, 0.010, 0.000
-                 ];
- 
-                 let lowerIndex = 0;
-                 for (let i = 0; i < luminanceValues.length; i++) {
-                     if (luminanceValues[i] <= luminance) {
-                         lowerIndex = i;
-                         break;
-                     }
-                 }
- 
-                 if (lowerIndex === 0 && luminance > luminanceValues[0]) {
-                     return { lower: 0, upper: 0 };
-                 }
- 
-                 if (lowerIndex === luminanceValues.length - 1) {
-                     return { lower: grades[luminanceValues.length - 1], upper: grades[luminanceValues.length - 1] };
-                 }
- 
-                 const upperIndex = lowerIndex === 0 ? 1 : lowerIndex - 1;
- 
-                 return {
-                     lower: grades[lowerIndex],
-                     upper: grades[upperIndex]
-                 };
-             };
- 
-             const copyToClipboard = (hex) => {
-                 navigator.clipboard.writeText(hex);
-                 setCopiedColor(hex);
-                 setTimeout(() => setCopiedColor(null), 2000);
-             };
- 
-             const toggleGuide = () => {
-                 setIsGuideOpen(!isGuideOpen);
-             };
- 
-             return (
-                 <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100/50">
-                     <header className="bg-white border-b border-gray-200">
-                         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-                             <div className="flex items-center justify-between h-16">
-                                 <h1 className="text-2xl font-bold">Magic Numbers</h1>
-                                 <div className="text-sm text-gray-600">
-                                     Created by{' '}
-                                     <a href="https://www.linkedin.com/in/sviatoslav-nytka/" target="_blank" rel="noopener noreferrer" className="text-black hover:text-gray-700 underline">
-                                         Sviatoslav Nytka
-                                     </a>
-                                     {' '}from{' '}
-                                     <a href="https://magicflux.co" target="_blank" rel="noopener noreferrer" className="text-black hover:text-gray-700 underline">
-                                         MagicFlux
-                                     </a>
-                                 </div>
-                             </div>
-                         </div>
-                     </header>
- 
-                     <main className="py-12 px-4">
-                         <div className="max-w-6xl mx-auto">
-                             <div className="bg-white border border-gray-200 p-6 mb-10">
-                                 <div className="max-w-xl">
-                                     <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                                         <div className="flex-1">
-                                             <label htmlFor="color" className="block text-lg font-medium text-gray-900 mb-3">
-                                                 Enter HEX Color Code
-                                             </label>
-                                             <div className="relative">
-                                                 <input
-                                                     type="text"
-                                                     id="color"
-                                                     value={hexColor}
-                                                     onChange={handleColorChange}
-                                                     className="w-full px-4 py-3 border-2 border-gray-300 text-lg font-mono transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
-                                                     placeholder="#000000"
-                                                 />
-                                                 {gradeInfo && (
-                                                     <div className="mt-2 text-sm text-black flex items-center gap-2">
-                                                         <AlertTriangleIcon />
-                                                         {gradeInfo}
-                                                     </div>
-                                                 )}
-                                             </div>
-                                         </div>
-                                         <div className="sm:pt-11">
-                                             <button
-                                                 onClick={toggleGuide}
-                                                 aria-expanded={isGuideOpen}
-                                                 className="w-full sm:w-auto px-4 py-3 flex items-center justify-between sm:justify-start gap-2 text-left bg-gray-50 hover:bg-gray-100 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
-                                             >
-                                                 <div className="flex items-center gap-2">
-                                                     <HelpCircleIcon />
-                                                     <span className="text-sm font-medium text-gray-900">Magic Numbers Guide</span>
-                                                 </div>
-                                                 {isGuideOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
-                                             </button>
-                                         </div>
-                                     </div>
- 
-                                     {isGuideOpen && (
-                                         <div className="mt-4 space-y-4">
-                                             <div className="space-y-2 text-sm text-gray-700">
-                                                 <p>
-                                                     This tool is inspired by{' '}
-                                                     <a 
-                                                         href="https://designsystem.digital.gov/design-tokens/color/overview/"
-                                                         target="_blank"
-                                                         rel="noopener noreferrer"
-                                                         className="text-black hover:text-gray-700 font-medium underline"
-                                                     >
-                                                         USWDS
-                                                     </a>
-                                                     , to help you create color combinations that meet accessibility standards.
-                                                 </p>
-                                                 <p>System assigns each color a grade from 0 (white) to 100 (black).</p>
-                                                 <p>The "magic number" is simply the difference between the grades of two colors.</p>
-                                                 <div className="space-y-1">
-                                                     <p className="font-medium text-gray-900">Accessibility levels:</p>
-                                                     <ul className="list-disc list-inside space-y-1 ml-2">
-                                                         <li>40+: Meets WCAG 2.2 AA for large text (3+)</li>
-                                                         <li>50+: Meets WCAG 2.2 AA for standard text and AAA for large text (4.5+)</li>
-                                                         <li>70+: Meets WCAG 2.2 AAA for standard text (7+)</li>
-                                                     </ul>
-                                                 </div>
-                                             </div>
-                                         </div>
-                                     )}
-                                 </div>
-                             </div>
- 
-                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                                 {palette.map((color) => (
-                                     <div
-                                         key={color.grade}
-                                         className={`bg-white/80 backdrop-blur-sm overflow-hidden hover:shadow-lg transition-all duration-200 ${
-                                             color.hex.toLowerCase() === hexColor.toLowerCase()
-                                                 ? 'ring-2 ring-black'
-                                                 : 'border border-gray-200'
-                                         }`}
-                                     >
-                                         <button
-                                             onClick={() => copyToClipboard(color.hex)}
-                                             className="w-full group focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
-                                         >
-                                             <div
-                                                 className="h-28 relative flex items-center justify-center transition-all duration-200"
-                                                 style={{ backgroundColor: color.hex }}
-                                             >
-                                                 {copiedColor === color.hex ? (
-                                                     <div className="flex items-center gap-1.5 px-4 py-2 bg-white text-gray-900 shadow-lg">
-                                                         <CheckIcon />
-                                                         <span className="text-sm font-medium">Copied!</span>
-                                                     </div>
-                                                 ) : (
-                                                     <div className="flex items-center gap-1.5 px-4 py-2 bg-white text-gray-900 opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-all duration-200 shadow-lg">
-                                                         <CopyIcon />
-                                                         <span className="text-sm font-medium">Copy</span>
-                                                     </div>
-                                                 )}
-                                             </div>
-                                             <div className="p-4">
-                                                 <div className="flex items-center justify-between mb-1.5">
-                                                     <div className="flex items-center gap-2">
-                                                         <span className="text-sm font-semibold text-gray-900">Grade {color.grade}</span>
-                                                         {color.hex.toLowerCase() === hexColor.toLowerCase() && (
-                                                             <div className="w-2 h-2 bg-black" />
-                                                         )}
-                                                     </div>
-                                                     <span className="text-xs font-mono text-gray-500">{color.hex.toUpperCase()}</span>
-                                                 </div>
-                                                 <div className="flex items-center justify-between">
-                                                     <p className="text-xs text-gray-500">
-                                                         Luminance: {color.luminance.toFixed(3)}
-                                                     </p>
-                                                 </div>
-                                             </div>
-                                         </button>
-                                     </div>
-                                 ))}
-                             </div>
-                         </div>
-                     </main>
-                 </div>
-             );
-         }
- 
-         const root = ReactDOM.createRoot(document.getElementById('root'));
-         root.render(
-             <React.StrictMode>
-                 <App />
-             </React.StrictMode>
-         );
-     </script>
-     <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
- </body>
- </html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Magic Numbers - Color Palette Generator</title>
+<style>
+  /* Reset and base styles */
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    line-height: 1.5;
+    color: #333;
+    background: linear-gradient(to bottom right, #f9fafb, rgba(249, 250, 251, 0.5));
+    min-height: 100vh;
+  }
+  
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  /* Header styles */
+  header {
+    background-color: white;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  
+  .header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 64px;
+    padding: 0 32px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  h1 {
+    font-size: 1.5rem;
+    font-weight: bold;
+  }
+  
+  .credit {
+    font-size: 0.875rem;
+    color: #6b7280;
+  }
+  
+  .credit a {
+    color: #000;
+    text-decoration: underline;
+  }
+  
+  .credit a:hover {
+    color: #4b5563;
+  }
+  
+  /* Main content */
+  main {
+    padding: 48px 16px;
+  }
+  
+  /* Input section styles */
+  .input-section {
+    background-color: white;
+    border: 1px solid #e5e7eb;
+    padding: 24px;
+    margin-bottom: 40px;
+  }
+  
+  .input-container {
+    max-width: 36rem;
+  }
+  
+  .input-row {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  @media (min-width: 640px) {
+    .input-row {
+      flex-direction: row;
+      align-items: flex-start;
+    }
+  }
+  
+  .input-group {
+    flex: 1;
+  }
+  
+  .input-label {
+    display: block;
+    font-size: 1.125rem;
+    font-weight: 500;
+    color: #111827;
+    margin-bottom: 12px;
+  }
+  
+  .hex-input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #d1d5db;
+    font-size: 1.125rem;
+    font-family: monospace;
+    transition: all 0.2s;
+  }
+  
+  .hex-input:focus {
+    outline: none;
+    border-color: transparent;
+    box-shadow: 0 0 0 2px #000;
+  }
+  
+  .guide-button {
+    width: 100%;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background-color: #f9fafb;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    text-align: left;
+  }
+  
+  @media (min-width: 640px) {
+    .guide-button {
+      width: auto;
+      justify-content: flex-start;
+      margin-top: 44px;
+    }
+  }
+  
+  .guide-button:hover {
+    background-color: #f3f4f6;
+  }
+  
+  .guide-button:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px #000, 0 0 0 4px rgba(255, 255, 255, 0.5);
+  }
+  
+  .guide-button-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .guide-button-text {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #111827;
+  }
+  
+  .chevron {
+    transition: transform 0.3s ease;
+  }
+  
+  .chevron.open {
+    transform: rotate(180deg);
+  }
+  
+  .message {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    font-size: 0.875rem;
+    color: #000;
+  }
+  
+  .error-message {
+    color: #b91c1c;
+  }
+  
+  /* Accordion styles */
+  .accordion-content {
+    display: none;
+    margin-top: 16px;
+    font-size: 0.875rem;
+    color: #4b5563;
+    space-y: 8px;
+  }
+  
+  .accordion-content.show {
+    display: block;
+  }
+  
+  .accordion-content p {
+    margin-bottom: 8px;
+  }
+  
+  .accordion-content a {
+    color: #000;
+    font-weight: 500;
+    text-decoration: underline;
+  }
+  
+  .accordion-content a:hover {
+    color: #4b5563;
+  }
+  
+  .accessibility-title {
+    font-weight: 500;
+    color: #111827;
+    margin-top: 4px;
+    margin-bottom: 4px;
+  }
+  
+  .accordion-content ul {
+    list-style-type: disc;
+    list-style-position: inside;
+    margin-left: 8px;
+    margin-bottom: 8px;
+  }
+  
+  .accordion-content li {
+    margin-bottom: 4px;
+  }
+  
+  /* Tabs styles */
+  .tab-list {
+    display: flex;
+    gap: 32px;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 24px;
+  }
+  
+  .tab {
+    padding: 16px 4px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #6b7280;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  
+  .tab:hover {
+    color: #4b5563;
+    border-bottom-color: #d1d5db;
+  }
+  
+  .tab.active {
+    color: #000;
+    border-bottom-color: #000;
+  }
+  
+  /* Color palette grid */
+  .color-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  
+  @media (min-width: 640px) {
+    .color-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .color-grid {
+      grid-template-columns: repeat(6, 1fr);
+    }
+  }
+  
+  .color-card {
+    background-color: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(4px);
+    overflow: hidden;
+    transition: all 0.2s;
+    border: 1px solid #e5e7eb;
+    text-decoration: none !important;
+  }
+  
+  .color-card:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+  
+  .color-card.active {
+    box-shadow: 0 0 0 2px #000;
+    border: none;
+  }
+  
+  /* Fix for underline issue */
+  .color-card,
+  .color-card-button,
+  .color-card-button:focus,
+  .color-card-button:active,
+  .color-card-button:hover,
+  .color-card.active .color-card-button,
+  .color-card.active .color-card-button:focus,
+  .color-card.active .color-card-button:active,
+  .color-card.active .color-card-button:hover {
+    text-decoration: none !important;
+    border-bottom: none !important;
+    outline: none !important;
+  }
+  
+  .color-card-button {
+    width: 100%;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    text-decoration: none !important;
+    outline: none;
+  }
+  
+  .color-card-button:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px #000, 0 0 0 4px rgba(255, 255, 255, 0.5);
+    text-decoration: none !important;
+  }
+  
+  .color-swatch {
+    height: 112px;
+    width: 100%;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .copy-button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background-color: white;
+    color: #111827;
+    border: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+  }
+  
+  .color-card:hover .copy-button,
+  .color-card-button:focus .copy-button {
+    opacity: 1;
+  }
+  
+  .color-info {
+    padding: 16px;
+  }
+  
+  .grade-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  
+  .grade-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #111827;
+  }
+  
+  .active-indicator {
+    width: 8px;
+    height: 8px;
+    background-color: #000;
+    display: inline-block;
+  }
+  
+  .color-hex {
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: #6b7280;
+  }
+  
+  .color-luminance {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 4px;
+  }
+  
+  /* Table styles */
+  .table-container {
+    background-color: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+  
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    border-spacing: 0;
+  }
+  
+  th {
+    padding: 12px 24px;
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #6b7280;
+    background-color: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+    height: 48px;
+    box-sizing: border-box;
+    line-height: 1;
+  }
+  
+  td {
+    padding: 16px 24px;
+    font-size: 0.875rem;
+    border-bottom: 1px solid #e5e7eb;
+    vertical-align: middle;
+    height: 64px; /* Fixed height for all cells */
+    box-sizing: border-box;
+    line-height: 1;
+  }
+  
+  tr:last-child td {
+    border-bottom: none;
+  }
+  
+  .color-sample {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid #e5e7eb;
+    display: block;
+  }
+  
+  .color-sample:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px #000, 0 0 0 4px rgba(255, 255, 255, 0.5);
+  }
+  
+  .hex-cell {
+    font-family: monospace;
+    color: #6b7280;
+  }
+  
+  .active-row {
+    background-color: #f9fafb;
+  }
+  
+  .table-row {
+    position: relative;
+    height: 64px;
+  }
+  
+  .table-copy-button {
+    opacity: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #6b7280;
+    transition: opacity 0.2s, color 0.2s;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .table-row:hover .table-copy-button {
+    opacity: 1;
+  }
+  
+  .table-copy-button:hover {
+    color: #000;
+  }
+  
+  .grade-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 64px; /* Exact fixed height */
+    min-height: 64px;
+    box-sizing: border-box;
+  }
+  
+  /* Icons */
+  .icon {
+    width: 16px;
+    height: 16px;
+  }
+  
+  /* Utility classes */
+  .hidden {
+    display: none;
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="header-content">
+    <h1>Magic Numbers</h1>
+    <p class="credit">
+      Created by <a href="https://www.linkedin.com/in/sviatoslav-nytka/" target="_blank">Sviatoslav Nytka</a> from <a href="https://magicflux.co" target="_blank">MagicFlux</a>
+    </p>
+  </div>
+</header>
+
+<main>
+  <div class="container">
+    <div class="input-section">
+      <div class="input-container">
+        <div class="input-row">
+          <div class="input-group">
+            <label for="hexInput" class="input-label">HEX Color Code</label>
+            <input 
+              type="text" 
+              id="hexInput" 
+              class="hex-input" 
+              value="#FFFFFF" 
+              placeholder="#000000"
+            >
+            <div id="warningMessage" class="message hidden">
+              <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                <path d="M12 9v4"/>
+                <path d="M12 17h.01"/>
+              </svg>
+              <span id="warningText"></span>
+            </div>
+            
+            <div id="errorMessage" class="message error-message hidden">
+              <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                <path d="M12 9v4"/>
+                <path d="M12 17h.01"/>
+              </svg>
+              <span>Please enter a valid hex color code</span>
+            </div>
+          </div>
+          
+          <button class="guide-button" id="guideButton">
+            <div class="guide-button-content">
+              <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                <path d="M12 17h.01"/>
+              </svg>
+              <span class="guide-button-text">Magic Numbers Guide</span>
+            </div>
+            <svg id="chevron" class="icon chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m6 9 6 6 6-6"/>
+            </svg>
+          </button>
+        </div>
+        
+        <div class="accordion-content" id="guideContent">
+          <p>
+            This tool is inspired by <a href="https://designsystem.digital.gov/design-tokens/color/overview/" target="_blank">USWDS</a>, to help you create color combinations that meet accessibility standards.
+          </p>
+          <p>
+            System assigns each color a grade from 0 (white) to 100 (black).
+          </p>
+          <p>
+            The "magic number" is simply the difference between the grades of two colors.
+          </p>
+          <p class="accessibility-title">Accessibility levels:</p>
+          <ul>
+            <li>40+: Meets WCAG 2.2 AA for large text (3+)</li>
+            <li>50+: Meets WCAG 2.2 AA for standard text and AAA for large text (4.5+)</li>
+            <li>70+: Meets WCAG 2.2 AAA for standard text (7+)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab-list">
+        <button class="tab active" data-tab="palette">Color Palette</button>
+        <button class="tab" data-tab="table">Luminance Table</button>
+      </div>
+      
+      <div id="paletteTab" class="tab-content">
+        <div id="colorGrid" class="color-grid"></div>
+      </div>
+      
+      <div id="tableTab" class="tab-content hidden">
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Grade</th>
+                <th>Color</th>
+                <th>Hex code</th>
+                <th>Luminance</th>
+                <th>Target range</th>
+                <th width="40"></th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+  // Define the luminance ranges for each grade
+  const LUMINANCE_RANGES = [
+    { grade: 0, min: 1.000, max: 1.000 },
+    { grade: 5, min: 0.850, max: 0.930 },
+    { grade: 10, min: 0.750, max: 0.820 },
+    { grade: 20, min: 0.500, max: 0.650 },
+    { grade: 30, min: 0.350, max: 0.450 },
+    { grade: 40, min: 0.225, max: 0.300 },
+    { grade: 50, min: 0.175, max: 0.183 },
+    { grade: 60, min: 0.100, max: 0.125 },
+    { grade: 70, min: 0.050, max: 0.070 },
+    { grade: 80, min: 0.020, max: 0.040 },
+    { grade: 90, min: 0.005, max: 0.015 },
+    { grade: 100, min: 0.000, max: 0.000 },
+  ];
+
+  // Color conversion utilities
+  function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result
+      ? {
+          r: parseInt(result[1], 16),
+          g: parseInt(result[2], 16),
+          b: parseInt(result[3], 16),
+        }
+      : null;
+  }
+
+  function rgbToHex(r, g, b) {
+    return "#" + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1).toUpperCase();
+  }
+
+  function rgbToHsl(r, g, b) {
+    r /= 255;
+    g /= 255;
+    b /= 255;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h = 0;
+    let s = 0;
+    let l = (max + min) / 2;
+
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+      switch (max) {
+        case r:
+          h = (g - b) / d + (g < b ? 6 : 0);
+          break;
+        case g:
+          h = (b - r) / d + 2;
+          break;
+        case b:
+          h = (r - g) / d + 4;
+          break;
+      }
+
+      h /= 6;
+    }
+
+    return { h, s, l };
+  }
+
+  function hslToRgb(h, s, l) {
+    let r, g, b;
+
+    if (s === 0) {
+      r = g = b = l;
+    } else {
+      const hue2rgb = (p, q, t) => {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1 / 6) return p + (q - p) * 6 * t;
+        if (t < 1 / 2) return q;
+        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+        return p;
+      };
+
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
+
+      r = hue2rgb(p, q, h + 1 / 3);
+      g = hue2rgb(p, q, h);
+      b = hue2rgb(p, q, h - 1 / 3);
+    }
+
+    return {
+      r: Math.round(r * 255),
+      g: Math.round(g * 255),
+      b: Math.round(b * 255),
+    };
+  }
+
+  // Calculate relative luminance according to WCAG
+  function calculateLuminance(r, g, b) {
+    const rsrgb = r / 255;
+    const gsrgb = g / 255;
+    const bsrgb = b / 255;
+
+    const r1 = rsrgb <= 0.03928 ? rsrgb / 12.92 : Math.pow((rsrgb + 0.055) / 1.055, 2.4);
+    const g1 = gsrgb <= 0.03928 ? gsrgb / 12.92 : Math.pow((gsrgb + 0.055) / 1.055, 2.4);
+    const b1 = bsrgb <= 0.03928 ? bsrgb / 12.92 : Math.pow((bsrgb + 0.055) / 1.055, 2.4);
+
+    return 0.2126 * r1 + 0.7152 * g1 + 0.0722 * b1;
+  }
+
+  // Find the closest grades to a luminance value
+  function findNeighboringGrades(luminance) {
+    let lowerGrade = null;
+    let higherGrade = null;
+    
+    // Sort ranges by min luminance (descending)
+    const sortedRanges = [...LUMINANCE_RANGES].sort((a, b) => b.min - a.min);
+    
+    for (let i = 0; i < sortedRanges.length; i++) {
+      if (luminance > sortedRanges[i].min) {
+        higherGrade = i > 0 ? sortedRanges[i-1].grade : null;
+        lowerGrade = sortedRanges[i].grade;
+        break;
+      }
+    }
+    
+    // If we didn't find a lower grade, it means the luminance is lower than the lowest grade
+    if (lowerGrade === null) {
+      lowerGrade = sortedRanges[sortedRanges.length - 1].grade;
+    }
+    
+    return { lowerGrade, higherGrade };
+  }
+
+  // Determine the grade based on luminance
+  function determineGrade(luminance) {
+    for (const range of LUMINANCE_RANGES) {
+      if (luminance >= range.min && luminance <= range.max) {
+        return { grade: range.grade, exact: true };
+      }
+    }
+
+    // If no exact match, find the closest grade
+    let closestGrade = 50; // Default to middle grade
+    let minDifference = Number.MAX_VALUE;
+
+    for (const range of LUMINANCE_RANGES) {
+      const midRange = (range.min + range.max) / 2;
+      const difference = Math.abs(luminance - midRange);
+      
+      if (difference < minDifference) {
+        minDifference = difference;
+        closestGrade = range.grade;
+      }
+    }
+
+    const { lowerGrade, higherGrade } = findNeighboringGrades(luminance);
+    
+    return { 
+      grade: closestGrade, 
+      exact: false,
+      lowerGrade: lowerGrade,
+      higherGrade: higherGrade 
+    };
+  }
+
+  // Generate a color with specific luminance while preserving hue and saturation
+  function generateColorWithLuminance(hue, saturation, targetLuminance) {
+    let low = 0;
+    let high = 1;
+    let mid = 0.5;
+    let iterations = 0;
+    const maxIterations = 20;
+
+    while (iterations < maxIterations) {
+      const rgb = hslToRgb(hue, saturation, mid);
+      const luminance = calculateLuminance(rgb.r, rgb.g, rgb.b);
+      
+      if (Math.abs(luminance - targetLuminance) < 0.001) {
+        return rgbToHex(rgb.r, rgb.g, rgb.b);
+      }
+      
+      if (luminance > targetLuminance) {
+        high = mid;
+      } else {
+        low = mid;
+      }
+      
+      mid = (low + high) / 2;
+      iterations++;
+    }
+    
+    const finalRgb = hslToRgb(hue, saturation, mid);
+    return rgbToHex(finalRgb.r, finalRgb.g, finalRgb.b);
+  }
+
+  // Generate the full palette based on the input color
+  function generatePalette(hexColor) {
+    const rgb = hexToRgb(hexColor);
+    if (!rgb) return [];
+
+    const { h, s } = rgbToHsl(rgb.r, rgb.g, rgb.b);
+    const palette = [];
+
+    for (const range of LUMINANCE_RANGES) {
+      const targetLuminance = (range.min + range.max) / 2;
+      const color = generateColorWithLuminance(h, s, targetLuminance);
+      const actualRgb = hexToRgb(color);
+      const actualLuminance = actualRgb ? calculateLuminance(actualRgb.r, actualRgb.g, actualRgb.b) : 0;
+      
+      palette.push({
+        grade: range.grade,
+        color,
+        luminance: actualLuminance,
+      });
+    }
+
+    return palette;
+  }
+
+  // DOM elements
+  const hexInput = document.getElementById('hexInput');
+  const colorGrid = document.getElementById('colorGrid');
+  const tableBody = document.getElementById('tableBody');
+  const guideButton = document.getElementById('guideButton');
+  const guideContent = document.getElementById('guideContent');
+  const warningMessage = document.getElementById('warningMessage');
+  const warningText = document.getElementById('warningText');
+  const errorMessage = document.getElementById('errorMessage');
+  const tabs = document.querySelectorAll('.tab');
+  const tabContents = document.querySelectorAll('.tab-content');
+  const chevron = document.getElementById('chevron');
+
+  // Format and validate hex input
+  function formatHexInput(input) {
+    // Remove all # symbols
+    let formattedInput = input.replace(/#/g, '');
+    
+    // Add a single # at the beginning
+    formattedInput = '#' + formattedInput;
+    
+    // Convert to uppercase
+    return formattedInput.toUpperCase();
+  }
+
+  // Copy color to clipboard
+  function copyToClipboard(text, element, isCard = false) {
+    navigator.clipboard.writeText(text).then(() => {
+      if (element) {
+        if (isCard) {
+          // Find the copy button within the card
+          const copyBtn = element.querySelector('.copy-button');
+          if (copyBtn) {
+            const originalHTML = `
+              <svg class="icon copy-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+              </svg>
+              <span class="copy-text">Copy</span>
+            `;
+            
+            copyBtn.innerHTML = `
+              <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              <span class="copy-text">Copied!</span>
+            `;
+            
+            setTimeout(() => {
+              copyBtn.innerHTML = originalHTML;
+            }, 2000);
+          }
+        } else {
+          // For table row copy button - use a fixed size container to prevent layout shifts
+          const originalHTML = `
+            <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+            </svg>
+          `;
+          
+          element.innerHTML = `
+            <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          `;
+          
+          setTimeout(() => {
+            element.innerHTML = originalHTML;
+          }, 2000);
+        }
+      }
+      
+      // Show a temporary toast message
+      const toast = document.createElement('div');
+      toast.textContent = 'Copied: ' + text;
+      toast.style.position = 'fixed';
+      toast.style.bottom = '20px';
+      toast.style.left = '50%';
+      toast.style.transform = 'translateX(-50%)';
+      toast.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+      toast.style.color = 'white';
+      toast.style.padding = '8px 16px';
+      toast.style.borderRadius = '4px';
+      toast.style.zIndex = '1000';
+      
+      document.body.appendChild(toast);
+      
+      setTimeout(() => {
+        document.body.removeChild(toast);
+      }, 2000);
+    });
+  }
+
+  // Validate hex color
+  function isValidHex(hex) {
+    return /^#([A-Fa-f0-9]{6})$/.test(hex);
+  }
+
+  // Update the palette based on the input color
+  function updatePalette() {
+    const hexColor = hexInput.value;
+    
+    // Only show error if user has entered at least 7 characters (including #)
+    if (hexColor.length >= 7 && !isValidHex(hexColor)) {
+      errorMessage.classList.remove('hidden');
+      warningMessage.classList.add('hidden');
+      return;
+    } else {
+      errorMessage.classList.add('hidden');
+    }
+    
+    try {
+      // Try to generate palette even if not complete yet
+      if (hexColor.length >= 4) { // At least #RGB format
+        const rgb = hexToRgb(hexColor.padEnd(7, '0'));
+        if (rgb) {
+          const luminance = calculateLuminance(rgb.r, rgb.g, rgb.b);
+          const gradeInfo = determineGrade(luminance);
+          const palette = generatePalette(hexColor.padEnd(7, '0'));
+          
+          // Show warning if not an exact grade match and hex is complete
+          warningMessage.classList.toggle('hidden', gradeInfo.exact || hexColor.length < 7);
+          if (!gradeInfo.exact && gradeInfo.lowerGrade !== null && gradeInfo.higherGrade !== null && hexColor.length >= 7) {
+            warningText.textContent = `This color falls between grades ${gradeInfo.lowerGrade} and ${gradeInfo.higherGrade}`;
+          } else if (!gradeInfo.exact && hexColor.length >= 7) {
+            warningText.textContent = `This color doesn't match any exact grade`;
+          }
+          
+          // Clear existing content
+          colorGrid.innerHTML = '';
+          tableBody.innerHTML = '';
+          
+          // Populate the color grid
+          palette.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'color-card';
+            
+            // Add active class if this is the input color's grade
+            if (item.grade === gradeInfo.grade) {
+              card.classList.add('active');
+            }
+            
+            const button = document.createElement('button');
+            button.className = 'color-card-button';
+            button.onclick = () => copyToClipboard(item.color, card, true);
+            
+            const swatch = document.createElement('div');
+            swatch.className = 'color-swatch';
+            swatch.style.backgroundColor = item.color;
+            
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'copy-button';
+            copyBtn.innerHTML = `
+              <svg class="icon copy-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+              </svg>
+              <span class="copy-text">Copy</span>
+            `;
+            copyBtn.onclick = (e) => {
+              e.stopPropagation();
+              copyToClipboard(item.color, card, true);
+            };
+            
+            swatch.appendChild(copyBtn);
+            
+            const info = document.createElement('div');
+            info.className = 'color-info';
+            
+            const gradeRow = document.createElement('div');
+            gradeRow.className = 'grade-row';
+            
+            const gradeLabel = document.createElement('div');
+            gradeLabel.className = 'grade-label';
+            
+            gradeLabel.appendChild(document.createTextNode(`Grade ${item.grade}`));
+            
+            if (item.grade === gradeInfo.grade) {
+              const indicator = document.createElement('div');
+              indicator.className = 'active-indicator';
+              gradeLabel.appendChild(indicator);
+            }
+            
+            const hexText = document.createElement('div');
+            hexText.className = 'color-hex';
+            hexText.textContent = item.color;
+            
+            gradeRow.appendChild(gradeLabel);
+            gradeRow.appendChild(hexText);
+            
+            const luminanceText = document.createElement('div');
+            luminanceText.className = 'color-luminance';
+            luminanceText.textContent = `Luminance: ${item.luminance.toFixed(3)}`;
+            
+            info.appendChild(gradeRow);
+            info.appendChild(luminanceText);
+            
+            button.appendChild(swatch);
+            button.appendChild(info);
+            
+            card.appendChild(button);
+            colorGrid.appendChild(card);
+          });
+          
+          // Populate the table
+          palette.forEach(item => {
+            const row = document.createElement('tr');
+            row.className = 'table-row';
+            
+            // Highlight row if it matches the input color grade
+            if (item.grade === gradeInfo.grade) {
+              row.classList.add('active-row');
+            }
+            
+            const gradeCell = document.createElement('td');
+            gradeCell.className = 'grade-cell';
+            
+            if (item.grade === gradeInfo.grade) {
+              const indicator = document.createElement('div');
+              indicator.className = 'active-indicator';
+              gradeCell.appendChild(indicator);
+            }
+            
+            gradeCell.appendChild(document.createTextNode(item.grade));
+            
+            const colorCell = document.createElement('td');
+            const colorSample = document.createElement('button');
+            colorSample.className = 'color-sample';
+            colorSample.style.backgroundColor = item.color;
+            colorSample.onclick = (e) => {
+              e.stopPropagation();
+              copyToClipboard(item.color, colorSample);
+            };
+            colorCell.appendChild(colorSample);
+            
+            const hexCell = document.createElement('td');
+            hexCell.className = 'hex-cell';
+            hexCell.textContent = item.color;
+            
+            const luminanceCell = document.createElement('td');
+            luminanceCell.textContent = item.luminance.toFixed(3);
+            
+            const rangeCell = document.createElement('td');
+            const range = LUMINANCE_RANGES.find(range => range.grade === item.grade);
+            rangeCell.textContent = `${range.min.toFixed(3)} - ${range.max.toFixed(3)}`;
+            
+            const copyCell = document.createElement('td');
+            copyCell.style.width = '40px';
+            const copyButton = document.createElement('button');
+            copyButton.className = 'table-copy-button';
+            copyButton.innerHTML = `
+              <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+              </svg>
+            `;
+            copyButton.onclick = (e) => {
+              e.stopPropagation();
+              copyToClipboard(item.color, copyButton);
+            };
+            copyCell.appendChild(copyButton);
+            
+            row.appendChild(gradeCell);
+            row.appendChild(colorCell);
+            row.appendChild(hexCell);
+            row.appendChild(luminanceCell);
+            row.appendChild(rangeCell);
+            row.appendChild(copyCell);
+            
+            tableBody.appendChild(row);
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error updating palette:', error);
+    }
+  }
+
+  // Event listeners
+  hexInput.addEventListener('input', function() {
+    this.value = formatHexInput(this.value);
+    updatePalette();
+  });
+
+  // Toggle the guide content
+  guideButton.addEventListener('click', function() {
+    guideContent.classList.toggle('show');
+    chevron.classList.toggle('open');
+  });
+
+  // Tab switching
+  tabs.forEach(tab => {
+    tab.addEventListener('click', function() {
+      // Remove active class from all tabs
+      tabs.forEach(t => t.classList.remove('active'));
+      
+      // Add active class to clicked tab
+      this.classList.add('active');
+      
+      // Hide all tab contents
+      tabContents.forEach(content => content.classList.add('hidden'));
+      
+      // Show the selected tab content
+      const tabId = this.getAttribute('data-tab');
+      document.getElementById(`${tabId}Tab`).classList.remove('hidden');
+    });
+  });
+
+  // Close the guide content when clicking outside
+  document.addEventListener('click', function(event) {
+    if (!event.target.closest('#guideButton') && !event.target.closest('#guideContent')) {
+      if (guideContent.classList.contains('show')) {
+        guideContent.classList.remove('show');
+        chevron.classList.remove('open');
+      }
+    }
+  });
+
+  // Initialize the palette
+  updatePalette();
+</script>
+</body>
+</html>
