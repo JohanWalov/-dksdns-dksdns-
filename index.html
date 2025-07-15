@@ -884,8 +884,8 @@ color: #111827;
           <div id="warningMessage" class="message hidden">
             <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="12"/>
-              <line x1="12" y1="16" x2="12.01" y2="16"/>
+              <path d="M12 16v-4"/>
+              <path d="M12 8h.01"/>
             </svg>
             <span id="warningText"></span>
           </div>
@@ -1388,10 +1388,23 @@ function generatePalette(hexColor) {
 const rgb = hexToRgb(hexColor);
 if (!rgb) return [];
 
+const inputLuminance = calculateLuminance(rgb.r, rgb.g, rgb.b);
+const inputGradeInfo = determineGrade(inputLuminance);
 const { h, s } = rgbToHsl(rgb.r, rgb.g, rgb.b);
 const palette = [];
 
 for (const range of LUMINANCE_RANGES) {
+  // If this is the grade that matches our input color exactly, use the input color
+  if (range.grade === inputGradeInfo.grade && inputGradeInfo.exact) {
+    palette.push({
+      grade: range.grade,
+      color: hexColor.toUpperCase(),
+      luminance: inputLuminance,
+      isInputColor: true
+    });
+    continue;
+  }
+  
   const targetLuminance = (range.min + range.max) / 2;
   
   // For grade 100, always use black (#000000)
@@ -1400,6 +1413,7 @@ for (const range of LUMINANCE_RANGES) {
       grade: 100,
       color: "#000000",
       luminance: 0.000,
+      isInputColor: false
     });
     continue;
   }
@@ -1412,10 +1426,11 @@ for (const range of LUMINANCE_RANGES) {
     grade: range.grade,
     color,
     luminance: actualLuminance,
+    isInputColor: false
   });
 }
 
-return palette;
+return { palette, inputGradeInfo };
 }
 
 // Format and validate hex input
@@ -1467,18 +1482,21 @@ if (hexColor.length >= 7 && !isValidHex(hexColor)) {
 try {
   // Try to generate palette even if not complete yet
   if (hexColor.length >= 4) { // At least #RGB format
-    const rgb = hexToRgb(hexColor.padEnd(7, '0'));
+    const paddedHex = hexColor.padEnd(7, '0');
+    const rgb = hexToRgb(paddedHex);
     if (rgb) {
-      const luminance = calculateLuminance(rgb.r, rgb.g, rgb.b);
-      const gradeInfo = determineGrade(luminance);
-      const palette = generatePalette(hexColor.padEnd(7, '0'));
+      const result = generatePalette(paddedHex);
+      const palette = result.palette;
+      const inputGradeInfo = result.inputGradeInfo;
       
       // Show warning if not an exact grade match and hex is complete
-      warningMessage.classList.toggle('hidden', gradeInfo.exact || hexColor.length < 7);
-      if (!gradeInfo.exact && gradeInfo.lowerGrade !== null && gradeInfo.higherGrade !== null && hexColor.length >= 7) {
-        warningText.textContent = `This color falls between grades ${gradeInfo.lowerGrade} and ${gradeInfo.higherGrade}`;
-      } else if (!gradeInfo.exact && hexColor.length >= 7) {
-        warningText.textContent = `This color doesn't match any exact grade`;
+      warningMessage.classList.toggle('hidden', inputGradeInfo.exact || hexColor.length < 7);
+      if (!inputGradeInfo.exact && hexColor.length >= 7) {
+        if (inputGradeInfo.lowerGrade !== null && inputGradeInfo.higherGrade !== null) {
+          warningText.textContent = `Your color falls between grades ${inputGradeInfo.lowerGrade} and ${inputGradeInfo.higherGrade}. Using closest grade ${inputGradeInfo.grade}.`;
+        } else {
+          warningText.textContent = `Your color doesn't match any exact grade. Using closest grade ${inputGradeInfo.grade}.`;
+        }
       }
       
       // Clear existing content
@@ -1491,7 +1509,7 @@ try {
         card.className = 'color-card';
         
         // Add active class if this is the input color's grade
-        if (item.grade === gradeInfo.grade) {
+        if (item.grade === inputGradeInfo.grade) {
           card.classList.add('active');
         }
         
@@ -1505,14 +1523,17 @@ try {
           if (copyBtn) {
             const originalHTML = copyBtn.innerHTML;
             copyBtn.innerHTML = `
-              <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-              <span>Copied!</span>
-            `;
+      <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      <span>Copied!</span>
+    `;
             
             setTimeout(() => {
-              copyBtn.innerHTML = originalHTML;
+              copyBtn.style.opacity = '0';
+              setTimeout(() => {
+                copyBtn.innerHTML = originalHTML;
+              }, 200); // Restore content after fade out
             }, 2000);
           }
         };
@@ -1535,13 +1556,17 @@ try {
           
           const originalHTML = copyBtn.innerHTML;
           copyBtn.innerHTML = `
-            <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
-          `;
+    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+    <span>Copied!</span>
+  `;
           
           setTimeout(() => {
-            copyBtn.innerHTML = originalHTML;
+            copyBtn.style.opacity = '0';
+            setTimeout(() => {
+              copyBtn.innerHTML = originalHTML;
+            }, 200); // Restore content after fade out
           }, 2000);
         };
         
@@ -1558,7 +1583,7 @@ try {
         
         gradeLabel.appendChild(document.createTextNode(`Grade ${item.grade}`));
         
-        if (item.grade === gradeInfo.grade) {
+        if (item.grade === inputGradeInfo.grade) {
           const indicator = document.createElement('div');
           indicator.className = 'active-indicator';
           gradeLabel.appendChild(indicator);
@@ -1582,6 +1607,21 @@ try {
         button.appendChild(info);
         
         card.appendChild(button);
+        // Reset opacity on hover to ensure button shows up
+        card.addEventListener('mouseenter', () => {
+          const copyBtn = card.querySelector('.copy-button');
+          if (copyBtn && copyBtn.innerHTML.includes('Copy')) {
+            copyBtn.style.removeProperty('opacity');
+          }
+        });
+        
+        card.addEventListener('mouseleave', () => {
+          const copyBtn = card.querySelector('.copy-button');
+          if (copyBtn && copyBtn.innerHTML.includes('Copy')) {
+            copyBtn.style.opacity = '0';
+          }
+        });
+        
         colorGrid.appendChild(card);
       });
       
@@ -1591,7 +1631,7 @@ try {
         row.className = 'table-row';
         
         // Highlight row if it matches the input color grade
-        if (item.grade === gradeInfo.grade) {
+        if (item.grade === inputGradeInfo.grade) {
           row.classList.add('active-row');
         }
         
@@ -1599,7 +1639,7 @@ try {
         const gradeDiv = document.createElement('div');
         gradeDiv.className = 'grade-cell';
         
-        if (item.grade === gradeInfo.grade) {
+        if (item.grade === inputGradeInfo.grade) {
           const indicator = document.createElement('div');
           indicator.className = 'active-indicator';
           gradeDiv.appendChild(indicator);
@@ -1644,13 +1684,17 @@ try {
           
           const originalHTML = copyButton.innerHTML;
           copyButton.innerHTML = `
-            <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
-          `;
+    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+    <span>Copied!</span>
+  `;
           
           setTimeout(() => {
-            copyButton.innerHTML = originalHTML;
+            copyButton.style.opacity = '0';
+            setTimeout(() => {
+              copyButton.innerHTML = originalHTML;
+            }, 200); // Restore content after fade out
           }, 2000);
         };
         copyCell.appendChild(copyButton);
@@ -1826,4 +1870,3 @@ updateContrastChecker();
 </script>
 </body>
 </html>
-
