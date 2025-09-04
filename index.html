@@ -1,15 +1,1872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="title" content="Magic Numbers: Accessibility Color Palette Generator">
+<meta name="description" content="A tool inspired by the USWDS and Salesforce Lightning Design System, using luminance to generate colors that always meet accessibility standards. Created by Sviatoslav Nytka from MagicFlux.">
+<title>Magic Numbers: Accessibility Color Palette Generator</title>
+<link rel="icon" href="Favicon.svg" type="image/x-icon">
+<style>
+/* Reset and base styles */
+* {
+margin: 0;
+padding: 0;
+box-sizing: border-box;
+}
 
-  <!DOCTYPE html>
-  <html lang="en">
-    <head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>Color Palette Generator</title>
-    </head>
+body {
+font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+line-height: 1.5;
+color: #333;
+background: linear-gradient(to bottom right, #f9fafb, rgba(249, 250, 251, 0.5));
+min-height: 100vh;
+}
 
-    <body>
-      <div id="root"></div>
-      <script type="module" src="/src/main.tsx"></script>
-    </body>
-  </html>
+.container {
+max-width: 1200px;
+margin: 0 auto;
+padding: 0 16px;
+}
+
+/* Header styles */
+header {
+background-color: white;
+border-bottom: 1px solid #e5e7eb;
+}
+
+.header-content {
+display: flex;
+justify-content: space-between;
+align-items: center;
+height: 64px;
+padding: 0 32px;
+max-width: 1200px;
+margin: 0 auto;
+}
+
+h1 {
+font-size: 1.5rem;
+font-weight: bold;
+}
+
+.credit {
+font-size: 0.875rem;
+color: #6b7280;
+}
+
+.credit a {
+color: #000;
+text-decoration: underline;
+}
+
+.credit a:hover {
+color: #4b5563;
+}
+
+/* Main content */
+main {
+padding: 32px 0;
+}
+
+/* Main tabs */
+.main-tabs {
+display: flex;
+gap: 32px;
+border-bottom: 1px solid #e5e7eb;
+margin-bottom: 32px;
+}
+
+.main-tab {
+padding: 16px 4px;
+border: none;
+background: none;
+cursor: pointer;
+font-size: 0.875rem;
+font-weight: 500;
+color: #6b7280;
+border-bottom: 2px solid transparent;
+transition: all 0.2s;
+}
+
+.main-tab:hover {
+color: #4b5563;
+border-bottom-color: #d1d5db;
+}
+
+.main-tab.active {
+color: #000;
+border-bottom-color: #000;
+}
+
+/* Input section styles */
+.input-section {
+background-color: white;
+border: 1px solid #e5e7eb;
+padding: 24px;
+margin-bottom: 40px;
+}
+
+.input-container {
+max-width: 36rem;
+}
+
+.input-row {
+display: flex;
+flex-direction: column;
+gap: 16px;
+}
+
+@media (min-width: 640px) {
+.input-row {
+flex-direction: row;
+align-items: flex-start;
+}
+}
+
+.input-group {
+flex: 1;
+}
+
+.input-label {
+display: block;
+font-size: 1.125rem;
+font-weight: 500;
+color: #111827;
+margin-bottom: 12px;
+}
+
+.hex-input {
+width: 100%;
+padding: 12px 16px;
+border: 2px solid #d1d5db;
+font-size: 1.125rem;
+font-family: monospace;
+transition: all 0.2s;
+}
+
+.hex-input:focus {
+outline: none;
+border-color: transparent;
+box-shadow: 0 0 0 2px #000;
+}
+
+.guide-button {
+width: 100%;
+padding: 12px 16px;
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 8px;
+background-color: #f9fafb;
+border: none;
+cursor: pointer;
+transition: background-color 0.2s;
+text-align: left;
+}
+
+@media (min-width: 640px) {
+.guide-button {
+width: auto;
+justify-content: flex-start;
+margin-top: 44px;
+}
+}
+
+.guide-button:hover {
+background-color: #f3f4f6;
+}
+
+.guide-button:focus {
+outline: none;
+box-shadow: 0 0 0 2px #000, 0 0 0 4px rgba(255, 255, 255, 0.5);
+}
+
+.guide-button-content {
+display: flex;
+align-items: center;
+gap: 8px;
+}
+
+.guide-button-text {
+font-size: 0.875rem;
+font-weight: 500;
+color: #111827;
+}
+
+.chevron {
+transition: transform 0.3s ease;
+}
+
+.chevron.open {
+transform: rotate(180deg);
+}
+
+.message {
+display: flex;
+align-items: center;
+gap: 8px;
+margin-top: 8px;
+font-size: 0.875rem;
+color: #000;
+}
+
+.error-message {
+color: #b91c1c;
+}
+
+/* Accordion styles */
+.accordion-content {
+display: none;
+margin-top: 8px;
+font-size: 0.875rem;
+color: #4b5563;
+position: relative;
+z-index: 10;
+background-color: transparent;
+border: none;
+padding: 0;
+}
+
+.accordion-content.show {
+display: block;
+}
+
+.accordion-content p {
+margin-bottom: 8px;
+}
+
+.accordion-content a {
+color: #000;
+font-weight: 500;
+text-decoration: underline;
+}
+
+.accordion-content a:hover {
+color: #4b5563;
+}
+
+.accessibility-title {
+font-weight: 500;
+color: #111827;
+margin-top: 4px;
+margin-bottom: 4px;
+}
+
+.accordion-content ul {
+list-style-type: disc;
+list-style-position: inside;
+margin-left: 8px;
+margin-bottom: 8px;
+}
+
+.accordion-content li {
+margin-bottom: 4px;
+}
+
+/* Tabs styles */
+.tab-list {
+display: flex;
+gap: 32px;
+border-bottom: 1px solid #e5e7eb;
+margin-bottom: 24px;
+}
+
+.tab {
+padding: 16px 4px;
+border: none;
+background: none;
+cursor: pointer;
+font-size: 0.875rem;
+font-weight: 500;
+color: #6b7280;
+border-bottom: 2px solid transparent;
+transition: all 0.2s;
+}
+
+.tab:hover {
+color: #4b5563;
+border-bottom-color: #d1d5db;
+}
+
+.tab.active {
+color: #000;
+border-bottom-color: #000;
+}
+
+.tab-content {
+display: none;
+}
+
+.tab-content.active {
+display: block;
+}
+
+/* Color palette grid */
+.color-grid {
+display: grid;
+grid-template-columns: repeat(2, 1fr);
+gap: 16px;
+}
+
+@media (min-width: 640px) {
+.color-grid {
+grid-template-columns: repeat(3, 1fr);
+}
+}
+
+@media (min-width: 1024px) {
+.color-grid {
+grid-template-columns: repeat(6, 1fr);
+}
+}
+
+.color-card {
+background-color: rgba(255, 255, 255, 0.8);
+backdrop-filter: blur(4px);
+overflow: hidden;
+transition: all 0.2s;
+border: 1px solid #e5e7eb;
+position: relative;
+}
+
+.color-card:hover {
+box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.color-card.active {
+box-shadow: 0 0 0 2px #000;
+border: none;
+}
+
+/* Fix for the black line issue */
+.color-card.active:active,
+.color-card.active:focus-within {
+box-shadow: 0 0 0 2px #000;
+border: none;
+outline: none;
+}
+
+.color-card-button {
+width: 100%;
+background: none;
+border: none;
+cursor: pointer;
+text-align: left;
+padding: 0;
+}
+
+.color-card-button:focus {
+outline: none;
+}
+
+.color-swatch {
+height: 112px;
+width: 100%;
+position: relative;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+
+.copy-button {
+display: flex;
+align-items: center;
+gap: 6px;
+padding: 8px 16px;
+background-color: white;
+color: #111827;
+border: none;
+font-size: 0.875rem;
+font-weight: 500;
+cursor: pointer;
+opacity: 0;
+transition: opacity 0.2s;
+box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+z-index: 10;
+}
+
+.color-card:hover .copy-button,
+.color-card-button:focus .copy-button {
+opacity: 1;
+}
+
+.color-info {
+padding: 16px;
+}
+
+.grade-row {
+display: flex;
+align-items: center;
+justify-content: space-between;
+margin-bottom: 6px;
+}
+
+.grade-label {
+display: flex;
+align-items: center;
+gap: 8px;
+font-size: 0.875rem;
+font-weight: 600;
+color: #111827;
+}
+
+.active-indicator {
+width: 8px;
+height: 8px;
+background-color: #000;
+display: inline-block;
+}
+
+.color-hex {
+font-family: monospace;
+font-size: 0.75rem;
+color: #6b7280;
+}
+
+.color-luminance {
+font-size: 0.75rem;
+color: #6b7280;
+margin-top: 4px;
+}
+
+/* Table styles */
+.table-container {
+background-color: white;
+border: 1px solid #e5e7eb;
+overflow: hidden;
+}
+
+table {
+width: 100%;
+border-collapse: collapse;
+border-spacing: 0;
+}
+
+th {
+padding: 8px 24px;
+text-align: left;
+font-size: 0.75rem;
+font-weight: 500;
+color: #6b7280;
+background-color: #f9fafb;
+border-bottom: 1px solid #e5e7eb;
+height: 40px;
+box-sizing: border-box;
+line-height: 1;
+white-space: nowrap;
+}
+
+td {
+padding: 8px 24px;
+font-size: 0.875rem;
+border-bottom: 1px solid #e5e7eb;
+vertical-align: middle;
+height: 48px;
+box-sizing: border-box;
+line-height: 1;
+white-space: nowrap;
+}
+
+tr:last-child td {
+border-bottom: none;
+}
+
+tr:hover .table-copy-button {
+opacity: 1;
+}
+
+.color-sample {
+width: 32px;
+height: 32px;
+border-radius: 4px;
+cursor: pointer;
+border: 1px solid #e5e7eb;
+display: block;
+}
+
+.color-sample:focus {
+outline: none;
+box-shadow: 0 0 0 2px #000, 0 0 0 4px rgba(255, 255, 255, 0.5);
+}
+
+.hex-cell {
+font-family: monospace;
+color: #6b7280;
+}
+
+.active-row {
+background-color: #f9fafb;
+}
+
+.table-row {
+position: relative;
+height: 48px;
+}
+
+.table-row:hover {
+background-color: #f9fafb;
+}
+
+.table-copy-button {
+opacity: 0;
+background: none;
+border: none;
+cursor: pointer;
+color: #6b7280;
+transition: opacity 0.2s, color 0.2s;
+width: 24px;
+height: 24px;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+
+.table-copy-button:hover {
+color: #000;
+}
+
+.grade-cell {
+display: flex;
+align-items: center;
+gap: 8px;
+height: 48px;
+}
+
+/* Contrast checker styles */
+.contrast-container {
+width: 100%;
+}
+
+.contrast-layout {
+display: flex;
+flex-direction: column;
+gap: 16px;
+}
+
+@media (min-width: 768px) {
+.contrast-layout {
+flex-direction: row;
+}
+}
+
+.contrast-inputs {
+width: 100%;
+max-width: 300px;
+display: flex;
+flex-direction: column;
+gap: 12px;
+}
+
+.contrast-inputs > * {
+margin-top: 0;
+margin-bottom: 12px;
+}
+
+.contrast-inputs > *:last-child {
+margin-bottom: 0;
+}
+
+/* Border radius changes */
+.contrast-inputs input,
+.swap-button,
+.main-preview,
+.contrast-button-preview,
+.contrast-icon-preview,
+.contrast-ratio-container,
+.compliance-container,
+.compliance-item,
+.accordion-content,
+.contrast-button {
+border-radius: 0;
+}
+
+.contrast-preview-section {
+flex: 1;
+display: grid;
+grid-template-columns: 1fr;
+gap: 16px;
+}
+
+@media (min-width: 768px) {
+.contrast-preview-section {
+grid-template-columns: 1fr 1fr;
+}
+}
+
+.main-preview {
+grid-column: span 2;
+padding: 24px;
+border: 1px solid #e5e7eb;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+
+.contrast-preview-content {
+text-align: center;
+}
+
+.contrast-normal-text {
+font-size: 0.875rem;
+margin-bottom: 8px;
+}
+
+.contrast-large-text {
+font-size: 1.5rem;
+font-weight: bold;
+}
+
+.contrast-button-preview {
+padding: 16px;
+border: 1px solid #e5e7eb;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+
+.contrast-button {
+padding: 8px 16px;
+border-radius: 4px;
+font-size: 0.875rem;
+font-weight: 500;
+cursor: pointer;
+}
+
+.contrast-icon-preview {
+padding: 16px;
+border: 1px solid #e5e7eb;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+
+.contrast-icon {
+width: 32px;
+height: 32px;
+}
+
+.contrast-results {
+grid-column: span 2;
+display: grid;
+grid-template-columns: 1fr;
+gap: 16px;
+margin-top: 8px;
+}
+
+.contrast-ratio-container {
+background-color: white;
+border: 1px solid #e5e7eb;
+border-radius: 0;
+padding: 16px;
+text-align: center;
+}
+
+.compliance-container {
+background-color: white;
+border: 1px solid #e5e7eb;
+border-radius: 0;
+padding: 16px;
+}
+
+.compliance-title {
+font-size: 1.125rem;
+font-weight: 500;
+margin-bottom: 16px;
+}
+
+.compliance-grid {
+display: grid;
+grid-template-columns: repeat(1, 1fr);
+gap: 12px;
+}
+
+@media (min-width: 640px) {
+.compliance-grid {
+grid-template-columns: repeat(2, 1fr);
+}
+}
+
+.compliance-item {
+display: flex;
+align-items: center;
+gap: 8px;
+padding: 8px;
+border-radius: 4px;
+background-color: #f9fafb;
+position: relative;
+}
+
+.info-icon:hover .tooltip {
+opacity: 1;
+visibility: visible;
+}
+
+.compliance-indicator {
+width: 20px;
+height: 20px;
+border-radius: 50%;
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 0.75rem;
+flex-shrink: 0;
+}
+
+.compliance-pass {
+background-color: #dcfce7;
+color: #166534;
+}
+
+.compliance-fail {
+background-color: #fee2e2;
+color: #991b1b;
+}
+
+.swap-button {
+padding: 12px 16px;
+background-color: #f9fafb;
+border: 1px solid #e5e7eb;
+font-size: 0.875rem;
+font-weight: 500;
+cursor: pointer;
+transition: background-color 0.2s;
+width: 100%;
+border-radius: 0;
+}
+
+.swap-button:hover {
+background-color: #f3f4f6;
+}
+
+.swap-button:focus {
+outline: none;
+box-shadow: 0 0 0 2px #000, 0 0 0 4px rgba(255, 255, 255, 0.5);
+}
+
+/* Toast notification */
+.toast {
+position: fixed;
+bottom: 20px;
+left: 50%;
+transform: translateX(-50%);
+background-color: rgba(0, 0, 0, 0.8);
+color: white;
+padding: 8px 16px;
+border-radius: 4px;
+z-index: 1000;
+font-size: 0.875rem;
+}
+
+/* Icons */
+.icon {
+width: 16px;
+height: 16px;
+}
+
+/* Info icon and tooltip styles */
+.info-icon {
+margin-left: 4px;
+position: relative;
+display: inline-flex;
+align-items: center;
+justify-content: center;
+width: 16px;
+height: 16px;
+color: #6b7280;
+cursor: pointer;
+}
+
+.tooltip {
+position: absolute;
+top: calc(100% + 5px);
+left: 50%;
+transform: translateX(-50%);
+width: 220px;
+padding: 8px 12px;
+background-color: #111827;
+color: white;
+font-size: 0.75rem;
+border-radius: 4px;
+z-index: 100;
+opacity: 0;
+visibility: hidden;
+transition: opacity 0.2s;
+pointer-events: none;
+box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+}
+
+.tooltip::before {
+content: '';
+position: absolute;
+bottom: 100%;
+left: 50%;
+transform: translateX(-50%);
+border-width: 6px;
+border-style: solid;
+border-color: transparent transparent #111827 transparent;
+}
+
+.compliance-item:hover .info-icon {
+color: #000;
+}
+
+/* Utility classes */
+.hidden {
+display: none;
+}
+
+.space-y-4 > * + * {
+margin-top: 16px;
+}
+
+.space-y-2 > * + * {
+margin-top: 8px;
+}
+
+/* Accordion styles */
+.accordion-content {
+display: none;
+margin-top: 8px;
+font-size: 0.875rem;
+color: #4b5563;
+position: relative;
+z-index: 10;
+background-color: transparent;
+border: none;
+padding: 0;
+}
+
+.accordion-content.show {
+display: block;
+}
+
+.contrast-ratio-value {
+font-family: monospace;
+font-size: 3.5rem;
+font-weight: bold;
+color: #111827;
+}
+</style>
+</head>
+<body>
+<header>
+<div class="header-content">
+<h1>Magic Numbers</h1>
+<p class="credit">
+  Created by <a href="https://www.linkedin.com/in/sviatoslav-nytka/" target="_blank">Sviatoslav Nytka</a> from <a href="https://magicflux.co" target="_blank">MagicFlux</a>
+</p>
+</div>
+</header>
+
+<main>
+<div class="container">
+<!-- Main tabs -->
+<div class="main-tabs">
+  <button class="main-tab active" data-main-tab="palette">Palette Generator</button>
+  <button class="main-tab" data-main-tab="contrast">Contrast Checker</button>
+</div>
+
+<!-- Palette Generator -->
+<div class="main-tab-content active" id="paletteTab">
+  <div class="input-section">
+    <div class="input-container">
+      <div class="input-row">
+        <div class="input-group">
+          <label for="hexInput" class="input-label">Base Color (HEX)</label>
+          <input 
+            type="text" 
+            id="hexInput" 
+            class="hex-input" 
+            value="#F3F3F3" 
+            placeholder="#000000"
+          >
+          <div id="warningMessage" class="message hidden">
+            <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 16v-4"/>
+              <path d="M12 8h.01"/>
+            </svg>
+            <span id="warningText"></span>
+          </div>
+          
+          <div id="errorMessage" class="message error-message hidden">
+            <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span>Please enter a valid hex color code</span>
+          </div>
+        </div>
+        
+        <button class="guide-button" id="guideButton">
+          <div class="guide-button-content">
+            <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <path d="M12 17h.01"/>
+            </svg>
+            <span class="guide-button-text">Palette Generator Guide</span>
+          </div>
+          <svg id="chevron" class="icon chevron" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m6 9 6 6 6-6"/>
+          </svg>
+        </button>
+      </div>
+      
+      <div class="accordion-content" id="guideContent">
+        <p>
+          This tool is inspired by <a href="https://designsystem.digital.gov/design-tokens/color/overview/" target="_blank">USWDS</a>, and Salesforce Lightning Design System, to help you create color combinations that meet accessibility standards.
+        </p>
+        <p>
+          System assigns each color a grade from 0 (white) to 100 (black).
+        </p>
+        <p>
+          The "magic number" is simply the difference between the grades of two colors.
+        </p>
+        <p class="accessibility-title">Accessibility levels:</p>
+        <ul>
+          <li>40+: Meets WCAG 2.2 AA for large text (3+)</li>
+          <li>50+: Meets WCAG 2.2 AA for standard text and AAA for large text (4.5+)</li>
+          <li>70+: Meets WCAG 2.2 AAA for standard text (7+)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab-list">
+      <button class="tab active" data-tab="palette">Color Palette</button>
+      <button class="tab" data-tab="table">Luminance Table</button>
+    </div>
+    
+    <div id="paletteContent" class="tab-content active">
+      <div id="colorGrid" class="color-grid"></div>
+    </div>
+    
+    <div id="tableContent" class="tab-content">
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Grade</th>
+              <th>Color</th>
+              <th>Hex code</th>
+              <th>Luminance</th>
+              <th>Target range</th>
+              <th width="40"></th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Contrast Checker -->
+<div class="main-tab-content hidden" id="contrastTab">
+  <div class="input-section">
+    <div class="contrast-container">
+      <div class="contrast-layout">
+        <div class="contrast-inputs">
+          <div>
+            <label for="foregroundColor" class="input-label">Text Color (HEX)</label>
+            <input 
+              type="text" 
+              id="foregroundColor" 
+              class="hex-input" 
+              value="#163300" 
+              placeholder="#000000"
+            >
+            <div id="foregroundError" class="message error-message hidden">
+              <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <span>Please enter a valid hex color code</span>
+            </div>
+          </div>
+          
+          <div>
+            <label for="backgroundColor" class="input-label">Background Color (HEX)</label>
+            <input 
+              type="text" 
+              id="backgroundColor" 
+              class="hex-input" 
+              value="#F3F3F3" 
+              placeholder="#FFFFFF"
+            >
+            <div id="backgroundError" class="message error-message hidden">
+              <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <span>Please enter a valid hex color code</span>
+            </div>
+          </div>
+          
+          <button id="swapButton" class="swap-button">
+            Swap Colors
+          </button>
+        </div>
+        
+        <div class="contrast-preview-section">
+          <div id="contrastPreview" class="main-preview">
+            <div class="contrast-preview-content">
+              <p class="contrast-normal-text">Normal Text (16px)</p>
+              <p class="contrast-large-text">Large Text (24px)</p>
+            </div>
+          </div>
+          
+          <div id="buttonPreview" class="contrast-button-preview">
+            <button class="contrast-button">Button</button>
+          </div>
+          
+          <div id="iconPreview" class="contrast-icon-preview">
+            <svg class="contrast-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+          </div>
+          
+          <div class="contrast-results">
+            <div class="contrast-ratio-container">
+              <h3 class="contrast-ratio-title">Contrast Ratio</h3>
+              <div id="contrastRatio" class="contrast-ratio-value">21.00:1</div>
+            </div>
+            
+            <div class="compliance-container">
+              <h3 class="compliance-title">WCAG 2.2 Compliance</h3>
+              
+              <div class="compliance-grid">
+                
+                <div class="compliance-item">
+                  <div id="aaLarge" class="compliance-indicator compliance-pass">
+                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  </div>
+                  <span>AA Large Text (3:1)</span>
+                  <div class="info-icon">
+                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"/>
+                      <path d="M12 16v-4"/>
+                      <path d="M12 8h.01"/>
+                    </svg>
+                    <div class="tooltip">Large text (at least 24px or 19px bold) must have a contrast ratio of at least 3:1 against its background to meet WCAG 2.2 AA standards.</div>
+                  </div>
+                </div>
+
+                <div class="compliance-item">
+                  <div id="aaNormal" class="compliance-indicator compliance-pass">
+                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  </div>
+                  <span>AA Normal Text (4.5:1)</span>
+                  <div class="info-icon">
+                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"/>
+                      <path d="M12 16v-4"/>
+                      <path d="M12 8h.01"/>
+                    </svg>
+                    <div class="tooltip">Normal text (less than 24px or 19px bold) must have a contrast ratio of at least 4.5:1 against its background to meet WCAG 2.2 AA standards.</div>
+                  </div>
+                </div>
+                
+                
+                <div class="compliance-item">
+                  <div id="aaaLarge" class="compliance-indicator compliance-pass">
+                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  </div>
+                  <span>AAA Large Text (4.5:1)</span>
+                  <div class="info-icon">
+                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"/>
+                      <path d="M12 16v-4"/>
+                      <path d="M12 8h.01"/>
+                    </svg>
+                    <div class="tooltip">Large text (at least 24px or 19px bold) must have a contrast ratio of at least 4.5:1 against its background to meet WCAG 2.2 AAA standards.</div>
+                  </div>
+                </div>
+
+                <div class="compliance-item">
+                  <div id="aaaNormal" class="compliance-indicator compliance-pass">
+                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  </div>
+                  <span>AAA Normal Text (7:1)</span>
+                  <div class="info-icon">
+                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"/>
+                      <path d="M12 16v-4"/>
+                      <path d="M12 8h.01"/>
+                    </svg>
+                    <div class="tooltip">Normal text (less than 24px or 19px bold) must have a contrast ratio of at least 7:1 against its background to meet WCAG 2.2 AAA standards.</div>
+                  </div>
+                </div>
+                
+                
+                <div class="compliance-item">
+                  <div id="aaNonText" class="compliance-indicator compliance-pass">
+                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  </div>
+                  <span>AA Non-Text (3:1)</span>
+                  <div class="info-icon">
+                    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"/>
+                      <path d="M12 16v-4"/>
+                      <path d="M12 8h.01"/>
+                    </svg>
+                    <div class="tooltip">Non-text elements like icons, form controls, and UI components must have a contrast ratio of at least 3:1 against their background to meet WCAG 2.2 AA standards.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</main>
+
+<script>
+// Define the luminance ranges for each grade
+const LUMINANCE_RANGES = [
+{ grade: 0, min: 1.000, max: 1.000 },
+{ grade: 5, min: 0.850, max: 0.930 },
+{ grade: 10, min: 0.750, max: 0.820 },
+{ grade: 20, min: 0.500, max: 0.650 },
+{ grade: 30, min: 0.350, max: 0.450 },
+{ grade: 40, min: 0.225, max: 0.300 },
+{ grade: 50, min: 0.175, max: 0.183 },
+{ grade: 60, min: 0.100, max: 0.125 },
+{ grade: 70, min: 0.050, max: 0.070 },
+{ grade: 80, min: 0.020, max: 0.040 },
+{ grade: 90, min: 0.005, max: 0.015 },
+{ grade: 100, min: 0.000, max: 0.000 },
+];
+
+// DOM elements
+const hexInput = document.getElementById('hexInput');
+const colorGrid = document.getElementById('colorGrid');
+const tableBody = document.getElementById('tableBody');
+const guideButton = document.getElementById('guideButton');
+const guideContent = document.getElementById('guideContent');
+const warningMessage = document.getElementById('warningMessage');
+const warningText = document.getElementById('warningText');
+const errorMessage = document.getElementById('errorMessage');
+const tabs = document.querySelectorAll('.tab');
+const tabContents = document.querySelectorAll('.tab-content');
+const chevron = document.getElementById('chevron');
+const mainTabs = document.querySelectorAll('.main-tab');
+const mainTabContents = document.querySelectorAll('.main-tab-content');
+
+// Contrast checker elements
+const foregroundColorInput = document.getElementById('foregroundColor');
+const backgroundColorInput = document.getElementById('backgroundColor');
+const contrastPreview = document.getElementById('contrastPreview');
+const buttonPreview = document.getElementById('buttonPreview');
+const iconPreview = document.getElementById('iconPreview');
+const contrastRatio = document.getElementById('contrastRatio');
+const aaNormal = document.getElementById('aaNormal');
+const aaLarge = document.getElementById('aaLarge');
+const aaaNormal = document.getElementById('aaaNormal');
+const aaaLarge = document.getElementById('aaaLarge');
+const aaNonText = document.getElementById('aaNonText');
+const swapButton = document.getElementById('swapButton');
+const foregroundError = document.getElementById('foregroundError');
+const backgroundError = document.getElementById('backgroundError');
+
+// Color conversion utilities
+function hexToRgb(hex) {
+const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+return result
+  ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16),
+    }
+  : null;
+}
+
+function rgbToHex(r, g, b) {
+return "#" + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1).toUpperCase();
+}
+
+function rgbToHsl(r, g, b) {
+r /= 255;
+g /= 255;
+b /= 255;
+
+const max = Math.max(r, g, b);
+const min = Math.min(r, g, b);
+let h = 0;
+let s = 0;
+let l = (max + min) / 2;
+
+if (max !== min) {
+  const d = max - min;
+  s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+  switch (max) {
+    case r:
+      h = (g - b) / d + (g < b ? 6 : 0);
+      break;
+    case g:
+      h = (b - r) / d + 2;
+      break;
+    case b:
+      h = (r - g) / d + 4;
+      break;
+  }
+
+  h /= 6;
+}
+
+return { h, s, l };
+}
+
+function hslToRgb(h, s, l) {
+let r, g, b;
+
+if (s === 0) {
+  r = g = b = l;
+} else {
+  const hue2rgb = (p, q, t) => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+
+  r = hue2rgb(p, q, h + 1 / 3);
+  g = hue2rgb(p, q, h);
+  b = hue2rgb(p, q, h - 1 / 3);
+}
+
+return {
+  r: Math.round(r * 255),
+  g: Math.round(g * 255),
+  b: Math.round(b * 255),
+};
+}
+
+// Calculate relative luminance according to WCAG
+function calculateLuminance(r, g, b) {
+const rsrgb = r / 255;
+const gsrgb = g / 255;
+const bsrgb = b / 255;
+
+const r1 = rsrgb <= 0.03928 ? rsrgb / 12.92 : Math.pow((rsrgb + 0.055) / 1.055, 2.4);
+const g1 = gsrgb <= 0.03928 ? gsrgb / 12.92 : Math.pow((gsrgb + 0.055) / 1.055, 2.4);
+const b1 = bsrgb <= 0.03928 ? bsrgb / 12.92 : Math.pow((bsrgb + 0.055) / 1.055, 2.4);
+
+return 0.2126 * r1 + 0.7152 * g1 + 0.0722 * b1;
+}
+
+// Calculate contrast ratio between two colors
+function calculateContrastRatio(color1, color2) {
+const rgb1 = hexToRgb(color1);
+const rgb2 = hexToRgb(color2);
+
+if (!rgb1 || !rgb2) return 1;
+
+const luminance1 = calculateLuminance(rgb1.r, rgb1.g, rgb1.b);
+const luminance2 = calculateLuminance(rgb2.r, rgb2.g, rgb2.b);
+
+const lighter = Math.max(luminance1, luminance2);
+const darker = Math.min(luminance1, luminance2);
+
+return (lighter + 0.05) / (darker + 0.05);
+}
+
+// Find the closest grades to a luminance value
+function findNeighboringGrades(luminance) {
+let lowerGrade = null;
+let higherGrade = null;
+
+// Sort ranges by min luminance (descending)
+const sortedRanges = [...LUMINANCE_RANGES].sort((a, b) => b.min - a.min);
+
+for (let i = 0; i < sortedRanges.length; i++) {
+  if (luminance > sortedRanges[i].min) {
+    higherGrade = i > 0 ? sortedRanges[i-1].grade : null;
+    lowerGrade = sortedRanges[i].grade;
+    break;
+  }
+}
+
+// If we didn't find a lower grade, it means the luminance is lower than the lowest grade
+if (lowerGrade === null) {
+  lowerGrade = sortedRanges[sortedRanges.length - 1].grade;
+}
+
+return { lowerGrade, higherGrade };
+}
+
+// Determine the grade based on luminance
+function determineGrade(luminance) {
+for (const range of LUMINANCE_RANGES) {
+  if (luminance >= range.min && luminance <= range.max) {
+    return { grade: range.grade, exact: true };
+  }
+}
+
+// If no exact match, find the closest grade
+let closestGrade = 50; // Default to middle grade
+let minDifference = Number.MAX_VALUE;
+
+for (const range of LUMINANCE_RANGES) {
+  const midRange = (range.min + range.max) / 2;
+  const difference = Math.abs(luminance - midRange);
   
+  if (difference < minDifference) {
+    minDifference = difference;
+    closestGrade = range.grade;
+  }
+}
+
+const { lowerGrade, higherGrade } = findNeighboringGrades(luminance);
+
+return { 
+  grade: closestGrade, 
+  exact: false,
+  lowerGrade: lowerGrade,
+  higherGrade: higherGrade 
+};
+}
+
+// Generate a color with specific luminance while preserving hue and saturation
+function generateColorWithLuminance(hue, saturation, targetLuminance) {
+let low = 0;
+let high = 1;
+let mid = 0.5;
+let iterations = 0;
+const maxIterations = 20;
+
+while (iterations < maxIterations) {
+  const rgb = hslToRgb(hue, saturation, mid);
+  const luminance = calculateLuminance(rgb.r, rgb.g, rgb.b);
+  
+  if (Math.abs(luminance - targetLuminance) < 0.001) {
+    return rgbToHex(rgb.r, rgb.g, rgb.b);
+  }
+  
+  if (luminance > targetLuminance) {
+    high = mid;
+  } else {
+    low = mid;
+  }
+  
+  mid = (low + high) / 2;
+  iterations++;
+}
+
+const finalRgb = hslToRgb(hue, saturation, mid);
+return rgbToHex(finalRgb.r, finalRgb.g, finalRgb.b);
+}
+
+// Generate the full palette based on the input color
+function generatePalette(hexColor) {
+const rgb = hexToRgb(hexColor);
+if (!rgb) return [];
+
+const inputLuminance = calculateLuminance(rgb.r, rgb.g, rgb.b);
+const inputGradeInfo = determineGrade(inputLuminance);
+const { h, s } = rgbToHsl(rgb.r, rgb.g, rgb.b);
+const palette = [];
+
+for (const range of LUMINANCE_RANGES) {
+  // If this is the grade that matches our input color exactly, use the input color
+  if (range.grade === inputGradeInfo.grade && inputGradeInfo.exact) {
+    palette.push({
+      grade: range.grade,
+      color: hexColor.toUpperCase(),
+      luminance: inputLuminance,
+      isInputColor: true
+    });
+    continue;
+  }
+  
+  const targetLuminance = (range.min + range.max) / 2;
+  
+  // For grade 100, always use black (#000000)
+  if (range.grade === 100) {
+    palette.push({
+      grade: 100,
+      color: "#000000",
+      luminance: 0.000,
+      isInputColor: false
+    });
+    continue;
+  }
+  
+  const color = generateColorWithLuminance(h, s, targetLuminance);
+  const actualRgb = hexToRgb(color);
+  const actualLuminance = actualRgb ? calculateLuminance(actualRgb.r, actualRgb.g, actualRgb.b) : 0;
+  
+  palette.push({
+    grade: range.grade,
+    color,
+    luminance: actualLuminance,
+    isInputColor: false
+  });
+}
+
+return { palette, inputGradeInfo };
+}
+
+// Format and validate hex input
+function formatHexInput(input) {
+// Remove all # symbols
+let formattedInput = input.replace(/#/g, '');
+
+// Add a single # at the beginning
+formattedInput = '#' + formattedInput;
+
+// Convert to uppercase
+return formattedInput.toUpperCase();
+}
+
+// Copy color to clipboard
+function copyToClipboard(text) {
+navigator.clipboard.writeText(text).then(() => {
+  // Show toast notification
+  const toast = document.createElement('div');
+  toast.textContent = 'Copied: ' + text;
+  toast.className = 'toast';
+  
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    document.body.removeChild(toast);
+  }, 2000);
+});
+}
+
+// Validate hex color
+function isValidHex(hex) {
+return /^#([A-Fa-f0-9]{6})$/.test(hex);
+}
+
+// Update the palette based on the input color
+function updatePalette() {
+const hexColor = hexInput.value;
+
+// Only show error if user has entered at least 7 characters (including #)
+if (hexColor.length >= 7 && !isValidHex(hexColor)) {
+  errorMessage.classList.remove('hidden');
+  warningMessage.classList.add('hidden');
+  return;
+} else {
+  errorMessage.classList.add('hidden');
+}
+
+try {
+  // Try to generate palette even if not complete yet
+  if (hexColor.length >= 4) { // At least #RGB format
+    const paddedHex = hexColor.padEnd(7, '0');
+    const rgb = hexToRgb(paddedHex);
+    if (rgb) {
+      const result = generatePalette(paddedHex);
+      const palette = result.palette;
+      const inputGradeInfo = result.inputGradeInfo;
+      
+      // Show warning if not an exact grade match and hex is complete
+      warningMessage.classList.toggle('hidden', inputGradeInfo.exact || hexColor.length < 7);
+      if (!inputGradeInfo.exact && hexColor.length >= 7) {
+        if (inputGradeInfo.lowerGrade !== null && inputGradeInfo.higherGrade !== null) {
+          warningText.textContent = `Your color falls between grades ${inputGradeInfo.lowerGrade} and ${inputGradeInfo.higherGrade}. Using closest grade ${inputGradeInfo.grade}.`;
+        } else {
+          warningText.textContent = `Your color doesn't match any exact grade. Using closest grade ${inputGradeInfo.grade}.`;
+        }
+      }
+      
+      // Clear existing content
+      colorGrid.innerHTML = '';
+      tableBody.innerHTML = '';
+      
+      // Populate the color grid
+      palette.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'color-card';
+        
+        // Add active class if this is the input color's grade
+        if (item.grade === inputGradeInfo.grade) {
+          card.classList.add('active');
+        }
+        
+        const button = document.createElement('button');
+        button.className = 'color-card-button';
+        button.onclick = () => {
+          copyToClipboard(item.color);
+          
+          // Find the copy button within the card and update its content
+          const copyBtn = card.querySelector('.copy-button');
+          if (copyBtn) {
+            const originalHTML = copyBtn.innerHTML;
+            copyBtn.innerHTML = `
+      <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      <span>Copied!</span>
+    `;
+            
+            setTimeout(() => {
+              copyBtn.style.opacity = '0';
+              setTimeout(() => {
+                copyBtn.innerHTML = originalHTML;
+              }, 200); // Restore content after fade out
+            }, 2000);
+          }
+        };
+        
+        const swatch = document.createElement('div');
+        swatch.className = 'color-swatch';
+        swatch.style.backgroundColor = item.color;
+        
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'copy-button';
+        copyBtn.innerHTML = `
+          <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+          </svg>
+          <span>Copy</span>
+        `;
+        copyBtn.onclick = (e) => {
+          e.stopPropagation();
+          copyToClipboard(item.color);
+          
+          const originalHTML = copyBtn.innerHTML;
+          copyBtn.innerHTML = `
+    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+    <span>Copied!</span>
+  `;
+          
+          setTimeout(() => {
+            copyBtn.style.opacity = '0';
+            setTimeout(() => {
+              copyBtn.innerHTML = originalHTML;
+            }, 200); // Restore content after fade out
+          }, 2000);
+        };
+        
+        swatch.appendChild(copyBtn);
+        
+        const info = document.createElement('div');
+        info.className = 'color-info';
+        
+        const gradeRow = document.createElement('div');
+        gradeRow.className = 'grade-row';
+        
+        const gradeLabel = document.createElement('div');
+        gradeLabel.className = 'grade-label';
+        
+        gradeLabel.appendChild(document.createTextNode(`Grade ${item.grade}`));
+        
+        if (item.grade === inputGradeInfo.grade) {
+          const indicator = document.createElement('div');
+          indicator.className = 'active-indicator';
+          gradeLabel.appendChild(indicator);
+        }
+        
+        const hexText = document.createElement('div');
+        hexText.className = 'color-hex';
+        hexText.textContent = item.color;
+        
+        gradeRow.appendChild(gradeLabel);
+        gradeRow.appendChild(hexText);
+        
+        const luminanceText = document.createElement('div');
+        luminanceText.className = 'color-luminance';
+        luminanceText.textContent = `Luminance: ${item.luminance.toFixed(3)}`;
+        
+        info.appendChild(gradeRow);
+        info.appendChild(luminanceText);
+        
+        button.appendChild(swatch);
+        button.appendChild(info);
+        
+        card.appendChild(button);
+        // Reset opacity on hover to ensure button shows up
+        card.addEventListener('mouseenter', () => {
+          const copyBtn = card.querySelector('.copy-button');
+          if (copyBtn && copyBtn.innerHTML.includes('Copy')) {
+            copyBtn.style.removeProperty('opacity');
+          }
+        });
+        
+        card.addEventListener('mouseleave', () => {
+          const copyBtn = card.querySelector('.copy-button');
+          if (copyBtn && copyBtn.innerHTML.includes('Copy')) {
+            copyBtn.style.opacity = '0';
+          }
+        });
+        
+        colorGrid.appendChild(card);
+      });
+      
+      // Populate the table
+      palette.forEach(item => {
+        const row = document.createElement('tr');
+        row.className = 'table-row';
+        
+        // Highlight row if it matches the input color grade
+        if (item.grade === inputGradeInfo.grade) {
+          row.classList.add('active-row');
+        }
+        
+        const gradeCell = document.createElement('td');
+        const gradeDiv = document.createElement('div');
+        gradeDiv.className = 'grade-cell';
+        
+        if (item.grade === inputGradeInfo.grade) {
+          const indicator = document.createElement('div');
+          indicator.className = 'active-indicator';
+          gradeDiv.appendChild(indicator);
+        }
+        
+        gradeDiv.appendChild(document.createTextNode(item.grade));
+        gradeCell.appendChild(gradeDiv);
+        
+        const colorCell = document.createElement('td');
+        const colorSample = document.createElement('button');
+        colorSample.className = 'color-sample';
+        colorSample.style.backgroundColor = item.color;
+        colorSample.onclick = (e) => {
+          e.stopPropagation();
+          copyToClipboard(item.color);
+        };
+        colorCell.appendChild(colorSample);
+        
+        const hexCell = document.createElement('td');
+        hexCell.className = 'hex-cell';
+        hexCell.textContent = item.color;
+        
+        const luminanceCell = document.createElement('td');
+        luminanceCell.textContent = item.luminance.toFixed(3);
+        
+        const rangeCell = document.createElement('td');
+        const range = LUMINANCE_RANGES.find(range => range.grade === item.grade);
+        rangeCell.textContent = `${range.min.toFixed(3)} - ${range.max.toFixed(3)}`;
+        
+        const copyCell = document.createElement('td');
+        copyCell.style.width = '40px';
+        const copyButton = document.createElement('button');
+        copyButton.className = 'table-copy-button';
+        copyButton.innerHTML = `
+          <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+          </svg>
+        `;
+        copyButton.onclick = (e) => {
+          e.stopPropagation();
+          copyToClipboard(item.color);
+          
+          const originalHTML = copyButton.innerHTML;
+          copyButton.innerHTML = `
+    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+    <span>Copied!</span>
+  `;
+          
+          setTimeout(() => {
+            copyButton.style.opacity = '0';
+            setTimeout(() => {
+              copyButton.innerHTML = originalHTML;
+            }, 200); // Restore content after fade out
+          }, 2000);
+        };
+        copyCell.appendChild(copyButton);
+        
+        row.appendChild(gradeCell);
+        row.appendChild(colorCell);
+        row.appendChild(hexCell);
+        row.appendChild(luminanceCell);
+        row.appendChild(rangeCell);
+        row.appendChild(copyCell);
+        
+        tableBody.appendChild(row);
+      });
+    }
+  }
+} catch (error) {
+  console.error('Error updating palette:', error);
+}
+}
+
+// Update contrast checker
+function updateContrastChecker() {
+const foreground = foregroundColorInput.value;
+const background = backgroundColorInput.value;
+
+// Validate inputs
+foregroundError.classList.toggle('hidden', foreground.length < 7 || isValidHex(foreground));
+backgroundError.classList.toggle('hidden', background.length < 7 || isValidHex(background));
+
+// Only update if both colors are valid
+if (isValidHex(foreground) && isValidHex(background)) {
+  // Update text preview
+  contrastPreview.style.color = foreground;
+  contrastPreview.style.backgroundColor = background;
+  
+  // Update button preview - make it a primary button with background color
+  const contrastButton = buttonPreview.querySelector('.contrast-button');
+  contrastButton.style.color = foreground;
+  contrastButton.style.backgroundColor = background;
+  contrastButton.style.border = 'none'; // Remove the border
+  
+  // Update icon preview
+  iconPreview.style.backgroundColor = background;
+  const contrastIcon = iconPreview.querySelector('.contrast-icon');
+  contrastIcon.style.color = foreground;
+  
+  // Calculate contrast ratio
+  const ratio = calculateContrastRatio(foreground, background);
+  contrastRatio.textContent = ratio.toFixed(2) + ':1';
+  
+  // Update compliance indicators
+  const aaLargePass = ratio >= 3;
+  const aaNormalPass = ratio >= 4.5;
+  const aaaLargePass = ratio >= 4.5;
+  const aaaNormalPass = ratio >= 7;
+  const aaNonTextPass = ratio >= 3;
+
+  updateComplianceIndicator(aaLarge, aaLargePass);
+  updateComplianceIndicator(aaNormal, aaNormalPass);
+  updateComplianceIndicator(aaaLarge, aaaLargePass);
+  updateComplianceIndicator(aaaNormal, aaaNormalPass);
+  updateComplianceIndicator(aaNonText, aaNonTextPass);
+}
+}
+
+// Update compliance indicator
+function updateComplianceIndicator(element, pass) {
+if (pass) {
+  element.classList.remove('compliance-fail');
+  element.classList.add('compliance-pass');
+  element.innerHTML = `
+    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+  `;
+} else {
+  element.classList.remove('compliance-pass');
+  element.classList.add('compliance-fail');
+  element.innerHTML = '✕';
+}
+}
+
+// Event listeners
+hexInput.addEventListener('input', function() {
+this.value = formatHexInput(this.value);
+updatePalette();
+});
+
+foregroundColorInput.addEventListener('input', function() {
+this.value = formatHexInput(this.value);
+updateContrastChecker();
+});
+
+backgroundColorInput.addEventListener('input', function() {
+this.value = formatHexInput(this.value);
+updateContrastChecker();
+});
+
+swapButton.addEventListener('click', function() {
+const temp = foregroundColorInput.value;
+foregroundColorInput.value = backgroundColorInput.value;
+backgroundColorInput.value = temp;
+updateContrastChecker();
+});
+
+// Modify the event listeners to change accordion behavior
+// Toggle the guide content
+guideButton.addEventListener('click', function() {
+guideContent.classList.toggle('show');
+chevron.classList.toggle('open');
+});
+
+// Remove the outside click handlers for accordions
+document.addEventListener('click', function(event) {
+// This function intentionally left empty to remove previous outside click behavior
+});
+
+// Tab switching for palette/table
+tabs.forEach(tab => {
+tab.addEventListener('click', function() {
+  const tabId = this.getAttribute('data-tab');
+  
+  // Remove active class from all tabs
+  tabs.forEach(t => t.classList.remove('active'));
+  
+  // Add active class to clicked tab
+  this.classList.add('active');
+  
+  // Hide all tab contents
+  document.getElementById('paletteContent').classList.remove('active');
+  document.getElementById('tableContent').classList.remove('active');
+  
+  // Show the selected tab content
+  if (tabId === 'palette') {
+    document.getElementById('paletteContent').classList.add('active');
+  } else {
+    document.getElementById('tableContent').classList.add('active');
+  }
+});
+});
+
+// Main tab switching
+mainTabs.forEach(tab => {
+tab.addEventListener('click', function() {
+  const tabId = this.getAttribute('data-main-tab');
+  
+  // Remove active class from all tabs
+  mainTabs.forEach(t => t.classList.remove('active'));
+  
+  // Add active class to clicked tab
+  this.classList.add('active');
+  
+  // Hide all tab contents
+  mainTabContents.forEach(content => {
+    content.classList.add('hidden');
+    content.classList.remove('active');
+  });
+  
+  // Show the selected tab content
+  if (tabId === 'palette') {
+    document.getElementById('paletteTab').classList.remove('hidden');
+    document.getElementById('paletteTab').classList.add('active');
+  } else {
+    document.getElementById('contrastTab').classList.remove('hidden');
+    document.getElementById('contrastTab').classList.add('active');
+  }
+});
+});
+
+// Initialize the palette and contrast checker
+updatePalette();
+updateContrastChecker();
+</script>
+</body>
+</html>
